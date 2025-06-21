@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Reparar PDFs</title>
+  <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+   <style>
+    body {
+      background-color: #121212;
+      color: #ffffff;
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    h2 {
+      color: #ffffff;
+    }
+    input[type="file"] {
+      background-color: #1e1e1e;
+      border: 1px solid #333;
+      color: #fff;
+      padding: 8px;
+      border-radius: 4px;
+      margin-bottom: 10px;
+    }
+    button {
+      background-color: #007acc;
+      color: #fff;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:disabled {
+      background-color: #555;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <h2>Reparar PDFs. Pode enviar vários, quando baixar, ele vai baixar todos com o mesmo nome de antes</h2>
+  <input type="file" id="pdf-upload" accept="application/pdf" multiple />
+  <button id="fix-btn" disabled>Corrigir e baixar todos</button>
+
+  <script>
+    const uploadInput = document.getElementById('pdf-upload');
+    const fixBtn = document.getElementById('fix-btn');
+    let loadedFiles = [];
+
+    uploadInput.addEventListener('change', (event) => {
+      loadedFiles = Array.from(event.target.files).filter(file => file.type === 'application/pdf');
+      fixBtn.disabled = loadedFiles.length === 0;
+      if(loadedFiles.length === 0) alert('Por favor, selecione ao menos um arquivo PDF válido.');
+    });
+
+    async function corrigirPdf(file) {
+      const loadedPdfBytes = await file.arrayBuffer();
+      const pdfDoc = await PDFLib.PDFDocument.load(loadedPdfBytes);
+      const newPdfDoc = await PDFLib.PDFDocument.create();
+
+      const pages = await newPdfDoc.copyPages(pdfDoc, pdfDoc.getPageIndices());
+      pages.forEach((page) => newPdfDoc.addPage(page));
+
+      const newPdfBytes = await newPdfDoc.save();
+
+      const baseName = file.name.replace(/\.pdf$/i, '');
+      const newFileName = baseName;
+
+      return { bytes: newPdfBytes, name: newFileName };
+    }
+
+    function baixarArquivo(bytes, nome) {
+      const blob = new Blob([bytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = nome;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    fixBtn.addEventListener('click', async () => {
+      fixBtn.disabled = true;
+      for (const file of loadedFiles) {
+        try {
+          const { bytes, name } = await corrigirPdf(file);
+          baixarArquivo(bytes, name);
+        } catch (err) {
+          alert(`Erro ao processar o arquivo ${file.name}: ${err.message}`);
+        }
+      }
+      fixBtn.disabled = false;
+    });
+  </script>
+</body>
+</html>
