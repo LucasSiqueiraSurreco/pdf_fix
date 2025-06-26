@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <title>Reparar PDFs</title>
   <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
-   <style>
+  <style>
     body {
       background-color: #121212;
       color: #ffffff;
@@ -50,23 +50,32 @@
     uploadInput.addEventListener('change', (event) => {
       loadedFiles = Array.from(event.target.files).filter(file => file.type === 'application/pdf');
       fixBtn.disabled = loadedFiles.length === 0;
-      if(loadedFiles.length === 0) alert('Por favor, selecione ao menos um arquivo PDF válido.');
+      if (loadedFiles.length === 0) {
+        alert('Por favor, selecione ao menos um arquivo PDF válido.');
+      }
     });
 
     async function corrigirPdf(file) {
-      const loadedPdfBytes = await file.arrayBuffer();
-      const pdfDoc = await PDFLib.PDFDocument.load(loadedPdfBytes);
-      const newPdfDoc = await PDFLib.PDFDocument.create();
+      try {
+        const loadedPdfBytes = await file.arrayBuffer();
 
-      const pages = await newPdfDoc.copyPages(pdfDoc, pdfDoc.getPageIndices());
-      pages.forEach((page) => newPdfDoc.addPage(page));
+        // Tenta carregar com pdf-lib
+        const pdfDoc = await PDFLib.PDFDocument.load(loadedPdfBytes, { ignoreEncryption: true });
+        const newPdfDoc = await PDFLib.PDFDocument.create();
 
-      const newPdfBytes = await newPdfDoc.save();
+        const pages = await newPdfDoc.copyPages(pdfDoc, pdfDoc.getPageIndices());
+        pages.forEach((page) => newPdfDoc.addPage(page));
 
-      const baseName = file.name.replace(/\.pdf$/i, '');
-      const newFileName = baseName;
+        const newPdfBytes = await newPdfDoc.save();
 
-      return { bytes: newPdfBytes, name: newFileName };
+        const baseName = file.name.replace(/\.pdf$/i, '');
+        const newFileName = baseName + "_corrigido.pdf";
+
+        return { bytes: newPdfBytes, name: newFileName };
+      } catch (err) {
+        console.error("Erro ao processar o PDF:", file.name, err);
+        throw new Error("Não foi possível reparar o PDF. Pode estar muito corrompido.");
+      }
     }
 
     function baixarArquivo(bytes, nome) {
@@ -81,14 +90,16 @@
 
     fixBtn.addEventListener('click', async () => {
       fixBtn.disabled = true;
+
       for (const file of loadedFiles) {
         try {
           const { bytes, name } = await corrigirPdf(file);
           baixarArquivo(bytes, name);
         } catch (err) {
-          alert(`Erro ao processar o arquivo ${file.name}: ${err.message}`);
+          alert(`Erro ao processar o arquivo "${file.name}": ${err.message}`);
         }
       }
+
       fixBtn.disabled = false;
     });
   </script>
